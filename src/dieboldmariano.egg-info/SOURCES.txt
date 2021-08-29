@@ -1,0 +1,10 @@
+LICENSE
+README.md
+pyproject.toml
+setup.cfg
+src/dieboldmariano/__init__.py
+src/dieboldmariano/dieboldmariano.py
+src/dieboldmariano.egg-info/PKG-INFO
+src/dieboldmariano.egg-info/SOURCES.txt
+src/dieboldmariano.egg-info/dependency_links.txt
+src/dieboldmariano.egg-info/top_level.txt
