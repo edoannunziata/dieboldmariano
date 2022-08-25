@@ -5,7 +5,7 @@ This package provides a simple, pure-Python implementation of the Diebold-Marian
 ## What is the Diebold-Mariano test?
 
 Assume we have a real-valued timeseries $T_{n \ge 0}$, and two forecasters 
-$F$, $G$ who each produce predictions $F_{n \ge 0$, $G_{n \ge 0}$. Which 
+$F$, $G$ who each produce predictions $F_{n \ge 0}$, $G_{n \ge 0}$. Which 
 one is better? Is the difference statistically significant?
 
 The cost function for errors can be specified arbitrarily and does not
