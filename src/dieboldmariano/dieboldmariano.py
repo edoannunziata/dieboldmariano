@@ -198,6 +198,6 @@ def dm_test(
     )
 
     if one_sided:
-        pvalue /= 2
+        pvalue = pvalue / 2 if dmstat < 0 else 1 - pvalue / 2
 
     return dmstat, pvalue

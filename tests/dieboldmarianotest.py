@@ -1,5 +1,5 @@
 from unittest import TestCase, main
-from src.dieboldmariano.dieboldmariano import (
+from src.dieboldmariano import (
     regularized_incomplete_beta,
     dm_test,
     autocovariance,
@@ -75,7 +75,7 @@ class TestDieboldMariano(TestCase):
         stat, pvalue = dm_test(V, P1, P2, h=3, loss = lambda x, y: abs(x - y), one_sided=True)
 
         self.assertAlmostEqual(stat, 1.2109, places=4)
-        self.assertAlmostEqual(pvalue, 0.123, places=4)
+        self.assertAlmostEqual(pvalue, 0.877, places=4)
 
 
 if __name__ == "__main__":
