@@ -1,4 +1,14 @@
-from typing import Sequence, Tuple, Callable
+from typing import Sequence, Tuple, Callable, Literal
+
+
+class InvalidParameterException(Exception):
+    ...
+
+class ZeroVarianceException(ArithmeticError):
+    ...
+
+class NegativeVarianceException(ArithmeticError):
+    ...
 
 def autocovariance(X: Sequence[float], k: int, mean: float) -> float: ...
 
@@ -29,4 +39,5 @@ def dm_test(
         loss: Callable[[float, float], float] = ...,
         h: int = ...,
         one_sided: bool = ...,
-        harvey_correction: bool = ...) -> Tuple[float, float]: ...
+        harvey_correction: bool = ...,
+        variance_estimator: Literal["acf", "bartlett"]) -> Tuple[float, float]: ...
