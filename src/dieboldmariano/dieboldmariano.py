@@ -1,5 +1,5 @@
 from itertools import islice
-from typing import Sequence, Callable, List, Tuple
+from typing import Sequence, Callable, List, Tuple, Literal
 from math import lgamma, fabs, isnan, nan, exp, log, log1p, sqrt
 
 
@@ -9,6 +9,11 @@ class InvalidParameterException(Exception):
 
 
 class ZeroVarianceException(ArithmeticError):
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+class NegativeVarianceException(ArithmeticError):
     def __init__(self, message: str):
         super().__init__(message)
 
@@ -88,7 +93,7 @@ def regularized_incomplete_beta(
             1 - x, b, a, epsilon=epsilon, maxiter=maxiter
         )
 
-    def fa(n: int, x: float) -> float:
+    def fa(_n: int, _x: float) -> float:
         return 1.0
 
     def fb(n: int, x: float) -> float:
@@ -112,10 +117,11 @@ def dm_test(
     loss: Callable[[float, float], float] = lambda u, v: (u - v) ** 2,
     h: int = 1,
     one_sided: bool = False,
-    harvey_correction: bool = True
+    harvey_correction: bool = True,
+    variance_estimator: Literal["acf", "bartlett"] = "acf"
 ) -> Tuple[float, float]:
     r"""
-    Performs the Diebold-Mariano test. The null hypothesis is that the two forecasts (`P1`, `P2`) have the same accuracy.
+    Performs the Diebold-Mariano test. The null hypothesis is that the two forecasts (`P1`, `P2`) have the same predictive accuracy.
 
     Parameters
     ----------
@@ -139,10 +145,26 @@ def dm_test(
         The forecast horizon. Default is 1.
 
     one_sided: bool
-        If set to true, returns the p-value for a one-sided test instead of a two-sided test. Default is false.
+        If set to true, returns the p-value for a one-sided test (null hypothesis: `P2` has at least as much
+        predictive accuracy as `P1`). instead of a two-sided test (null hypothesis: `P1` has the same predictive
+        accuracy as `P2`).
+        Default is false.
 
-    harvey_correcetion: bool
-        If set to true, uses a modified test statistics as per Harvey, Leybourne and Newbold (1997).
+    harvey_correction: bool
+        If set to true, uses a modified test statistics as per [1]. Default is true.
+
+    variance_estimator: Literal["acf", "bartlett"]
+        Specifies the long-run variance estimator to use.
+        `"acf"` uses the autocorrelation method.
+        `"bartlett"` uses the Bartlett weights method.
+
+        Both methods are discussed in [2].
+
+    References
+    ----------
+    [1] Harvey, D., Leybourne, S., & Newbold, P. (1997). Testing the equality of prediction mean squared errors. International Journal of forecasting, 13(2), 281-291.
+
+    [2] Diebold, F.X. and Mariano, R.S. (1995) Comparing predictive accuracy. Journal of Business and Economic Statistics, 13, 253-263.
 
     Returns
     -------
@@ -158,10 +180,13 @@ def dm_test(
             "Invalid parameter for horizon length. Must be a positive integer."
         )
 
+    if h > len(V):
+        raise InvalidParameterException(
+            "Forecast horizon cannot be greater than the number of predictions."
+        )
+
     n = len(P1)
     mean = 0.0
-    loss1 = 0.0
-    loss2 = 0.0
     D: List[float] = []
 
     for v, p1, p2 in zip(V, P1, P2):
@@ -169,22 +194,43 @@ def dm_test(
         l2 = loss(v, p2)
         D.append(l1 - l2)
         mean += l1 - l2
-        loss1 += l1
-        loss2 += l2
 
     mean /= n
 
     V_d = 0.0
-    for i in range(h):
-        V_d += autocovariance(D, i, mean)
-        if i == 0:
-            V_d /= 2
+    if variance_estimator == "acf":
+        for i in range(h):
+            v_i = autocovariance(D, i, mean)
+            if i == 0:
+                V_d += v_i
+            else:
+                V_d += 2 * v_i
+        V_d /= n
+    elif variance_estimator == "bartlett":
+        for i in range(h):
+            v_i = autocovariance(D, i, mean)
+            if i == 0:
+                V_d += v_i
+            else:
+                V_d += v_i * 2*(1-i/h)
+        V_d /= n
 
-    V_d = 2 * V_d / n
+    else:
+        raise InvalidParameterException(
+            "Invalid value for variance estimator parameter. "
+            "Allowed values are 'acf' or 'bartlett'."
+        )
 
     if V_d == 0:
         raise ZeroVarianceException(
-            "Variance of the DM statistic is zero. Maybe the prediction series are identical?"
+            "Variance of the DM statistic is zero. " 
+            "Maybe the prediction series are identical?"
+        )
+
+    if V_d < 0:
+        raise NegativeVarianceException(
+            "Variance estimator for the DM statistic returned a negative value. "
+            "Try using variance_estimator='bartlett'."
         )
 
     if harvey_correction:

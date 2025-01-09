@@ -3,6 +3,8 @@ from src.dieboldmariano import (
     regularized_incomplete_beta,
     dm_test,
     autocovariance,
+    NegativeVarianceException,
+    InvalidParameterException
 )
 
 
@@ -22,12 +24,12 @@ class TestRegularizedBeta(TestCase):
 class TestAutocovariance(TestCase):
     def test_autocovariance(self):
         V = [0, 2, 3, 2, 1, 8, 3, 2]
-        mean = sum(x for x in V) / sum(1 for _ in V)
+        mean = sum(x for x in V) / len(V)
         self.assertAlmostEqual(autocovariance(V, 3, mean), 0.6816, places=4)
 
 
 class TestDieboldMariano(TestCase):
-    def test_diebold_mariano_1(self):
+    def test_short(self):
         V = [0, 0, 0, 0, 0, 0]
         P1 = [0, 1, 2, 3, 4, 5]
         P2 = [0, 2, 3, 3, 5, 6]
@@ -36,7 +38,53 @@ class TestDieboldMariano(TestCase):
         self.assertAlmostEqual(stat, -2.4905, places=4)
         self.assertAlmostEqual(pvalue, 0.05513, places=4)
 
-    def test_diebold_mariano_2(self):
+    def test_short_multi_step(self):
+        V = [0, 0, 0, 0, 0, 0]
+        P1 = [0, 1, 2, 3, 4, 5]
+        P2 = [0, 2, 3, 3, 5, 6]
+        stat, pvalue = dm_test(V, P1, P2, h=2)
+
+        self.assertAlmostEqual(stat, -1.8226, places=4)
+        self.assertAlmostEqual(pvalue, 0.128, places=4)
+
+    def test_short_multi_step_bartlett(self):
+        V = [0, 0, 0, 0, 0, 0]
+        P1 = [0, 1, 2, 3, 4, 5]
+        P2 = [0, 2, 3, 3, 5, 6]
+        stat, pvalue = dm_test(V, P1, P2, h=2, variance_estimator="bartlett")
+
+        self.assertAlmostEqual(stat, -1.9194, places=4)
+        self.assertAlmostEqual(pvalue, 0.113, places=4)
+
+    def test_h_non_positive(self):
+        V = [0] * 20
+        P1 = [0] * 20
+        P2 = [0] * 20
+
+        with self.assertRaises(InvalidParameterException):
+            dm_test(V, P1, P2, h=0)
+
+        with self.assertRaises(InvalidParameterException):
+            dm_test(V, P1, P2, h=-11)
+
+    def test_h_too_large(self):
+        V = [0] * 20
+        P1 = [0] * 20
+        P2 = [0] * 20
+
+        with self.assertRaises(InvalidParameterException):
+            dm_test(V, P1, P2, h=30)
+
+    def test_negative_variance(self):
+        V = [10, 20, 30, 40, 50]
+        P1 = [11, 21, 29, 42, 53]
+        P2 = [13, 26, 24, 40, 59]
+
+        with self.assertRaises(NegativeVarianceException):
+            dm_test(V, P1, P2, h=3)
+
+
+    def test_long(self):
         V = [0] * 15
         P1 = [
             0.3675225224615024,
@@ -76,6 +124,52 @@ class TestDieboldMariano(TestCase):
 
         self.assertAlmostEqual(stat, 1.2109, places=4)
         self.assertAlmostEqual(pvalue, 0.877, places=4)
+
+
+    def test_long_bartlett(self):
+        V = [0] * 15
+        P1 = [
+            0.3675225224615024,
+            0.5450608127223211,
+            0.22044990720021074,
+            0.8688743471040006,
+            0.6072512228948467,
+            0.8582283746501538,
+            0.41662295816718187,
+            0.3812100211114714,
+            0.7185133356116706,
+            0.30827323290318875,
+            0.4297093624074402,
+            0.8615974488577858,
+            0.7240514514808826,
+            0.3450839595261038,
+            0.19675301374013598,
+        ]
+        P2 = [
+            0.12794132529988733,
+            0.3679643204341153,
+            0.768715420996091,
+            0.09972248964114683,
+            0.27197653636654284,
+            0.28797629010039505,
+            0.9160213458582482,
+            0.6112628048698798,
+            0.5452873235576241,
+            0.06785907231746158,
+            0.6072666485541124,
+            0.6241575753989782,
+            0.39998026828867217,
+            0.19895665605941748,
+            0.8094941215215619,
+        ]
+        stat, pvalue = dm_test(
+            V, P1, P2, h=3, loss=lambda x, y: abs(x - y),
+            one_sided=True,
+            variance_estimator="bartlett"
+        )
+
+        self.assertAlmostEqual(stat, 0.77756, places=4)
+        self.assertAlmostEqual(pvalue, 0.7751, places=4)
 
 
 if __name__ == "__main__":
